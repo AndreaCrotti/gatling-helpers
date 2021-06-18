@@ -1,6 +1,7 @@
-{:deps {clj-gatling/clj-gatling {:mvn/version "0.15.1"}}
+{:deps {cheshire/cheshire {:mvn/version "5.9.0"}
+        clj-gatling/clj-gatling {:mvn/version "0.15.1"}}
  :aliases
  {:dev
-  {:deps {http-kit/http-kit {:mvn/version "2.5.3"}
-          clj-http/clj-http {:mvn/version "3.12.2"}
-          hato/hato         {:mvn/version "0.8.1"}}}}}
+  {:extra-deps {http-kit/http-kit {:mvn/version "2.5.3"}
+                clj-http/clj-http {:mvn/version "3.12.2"}
+                hato/hato         {:mvn/version "0.8.1"}}}}}

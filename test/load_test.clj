@@ -6,7 +6,7 @@
 
 (def url "http://localhost:4444")
 
-(defn request []
+(defn request [& _args]
   (= 200 (:status @(oh/get url))))
 
 (def scenarios
