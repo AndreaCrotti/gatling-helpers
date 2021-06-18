@@ -10,13 +10,18 @@
   (= 200 (:status @(oh/get url))))
 
 (def scenarios
-  {:name      "Scenario"
+  {:name      gh/performance-tests
    :scenarios [{:name  "First"
                 :steps [{:name    "one"
                          :request request}]}]})
 
 (def options
-  {:concurrency 10})
+  {:concurrency 100
+   :root        gh/report-root})
+
+(def thresholds
+  {"Global Information"
+   {:meanNumberOfRequestsPerSecond 1000}})
 
 (deftest load-test
   (g/run scenarios options))

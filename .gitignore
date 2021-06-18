@@ -5,3 +5,4 @@
 .gitignore
 .calva/deps.clj.jar
 .calva/output-window/output.calva-repl
+/report/
