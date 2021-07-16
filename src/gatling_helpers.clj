@@ -1,24 +1,32 @@
 (ns gatling-helpers
+  "Helper functions to parse, analyse and automatically generate tests
+  from gatling simulation results"
   (:require [clojure.string :as str]
             [clojure.test :refer [testing is]]
+            [clojure.set :refer [subset?]]
             [clojure.java.io :as io]
             [cheshire.core :as json]
             [medley.core :as medley]))
 
+(def global-information "Global Information")
+;; these two should maybe be customisable to avoid clashing
 (def report-root "report")
 (def performance-tests "perf")
+(def nil-value "-")
 
-(defn to-double [d]
-  (let [f #(try (Float/parseFloat %)
-                (catch Exception _e
-                  %))]
+(defn parse-val [d]
+  (let [f #(if (= nil-value %)
+             0
+             (try (Float/parseFloat %)
+                  (catch Exception _e
+                    %)))]
     (medley/map-vals f d)))
 
-(defn transform-to-double [report]
+(defn transform-report [report]
   (medley.core/map-vals
    (fn [g]
      (medley.core/map-vals
-      to-double
+      parse-val
       (dissoc g :name)))
    report))
 
@@ -31,14 +39,25 @@
        (reduce-kv (fn [res name [r]]
                     (assoc res name r))
                   {})
-       transform-to-double))
+       transform-report))
 
 (def rules
-  {:maxResponseTime (fn [])
-   :meanNumberOfRequestsPerSecond (fn [{:keys [meanNumberOfRequestsPerSecond]}]
-                                    (:ok meanNumberOfRequestsPerSecond))
-   :meanResponseTime (fn [])
-   :failureRate (fn [])})
+  ;; implement the missing rules
+  {:maxResponseTime
+   (fn [{:keys [maxResponseTime]}]
+     (:ok maxResponseTime))
+
+   :meanNumberOfRequestsPerSecond
+   (fn [{:keys [meanNumberOfRequestsPerSecond]}]
+     (:ok meanNumberOfRequestsPerSecond))
+
+   :meanResponseTime
+   (fn [{:keys [meanResponseTime]}]
+     (:ok meanResponseTime))
+
+   :successRate
+   (fn [{:keys [numberOfRequests]}]
+     (* 100 (float (/ (:ok numberOfRequests) (:total numberOfRequests)))))})
 
 (defn find-latest-report []
   (->> (io/file report-root)
@@ -59,6 +78,7 @@
       fetch-last-report))
 
 (defn check-thresholds [thresholds]
+  {:pre [(subset? (set (mapcat keys (vals thresholds))) (set (keys rules)))]}
   ;; fetch the latest report and check the
   (let [results (last-report)]
     (doseq [[name res] results

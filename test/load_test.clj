@@ -20,8 +20,12 @@
    :root        gh/report-root})
 
 (def thresholds
-  {"Global Information"
-   {:meanNumberOfRequestsPerSecond 1000}})
+  {gh/global-information
+   {:successRate                   99
+    :meanNumberOfRequestsPerSecond 500
+    :meanResponseTime              10
+    :maxResponseTime               20}})
 
 (deftest load-test
-  (g/run scenarios options))
+  (g/run scenarios options)
+  (gh/check-thresholds thresholds))
