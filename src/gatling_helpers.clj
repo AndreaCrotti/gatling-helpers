@@ -13,6 +13,14 @@
 (def report-root "report")
 (def performance-tests "perf")
 (def nil-value "-")
+(def failures (atom #{}))
+
+(defn add-failure! [url {:keys [status error]}]
+  (let [failure (medley/filter-vals some?
+                                    {:url url
+                                     :status status
+                                     :error error})]
+    (swap! failures conj failure)))
 
 (defn parse-val [d]
   (let [f #(if (= nil-value %)
@@ -44,20 +52,20 @@
 (def rules
   ;; implement the missing rules
   {:maxResponseTime
-   (fn [{:keys [maxResponseTime]}]
-     (:ok maxResponseTime))
+   (fn [v {:keys [maxResponseTime]}]
+     (<= (:ok maxResponseTime) v))
 
-   :meanNumberOfRequestsPerSecond
-   (fn [{:keys [meanNumberOfRequestsPerSecond]}]
-     (:ok meanNumberOfRequestsPerSecond))
+   :failureRate
+   (fn [v {:keys [numberOfRequests]}]
+     (<= (* 100 (float (/ (:ko numberOfRequests) (:total numberOfRequests)))) v))
 
    :meanResponseTime
-   (fn [{:keys [meanResponseTime]}]
-     (:ok meanResponseTime))
+   (fn [v {:keys [meanResponseTime]}]
+     (<= (:ok meanResponseTime) v))
 
-   :successRate
-   (fn [{:keys [numberOfRequests]}]
-     (* 100 (float (/ (:ok numberOfRequests) (:total numberOfRequests)))))})
+   :meanNumberOfRequestsPerSecond
+   (fn [v {:keys [meanNumberOfRequestsPerSecond]}]
+     (>= (:ok meanNumberOfRequestsPerSecond) v))})
 
 (defn find-latest-report []
   (->> (io/file report-root)
@@ -81,8 +89,10 @@
   {:pre [(subset? (set (mapcat keys (vals thresholds))) (set (keys rules)))]}
   ;; fetch the latest report and check the
   (let [results (last-report)]
-    (doseq [[name res] results
+    (doseq [[name res]       results
             [path threshold] (get thresholds name)]
       (testing (str "Scenario: " name ", Step: " path)
-        (let [f (get rules  path)]
-          (is (<= threshold (f res))))))))
+        (let [f      (get rules path)
+              passed? (f threshold res)]
+          (is passed? (str "Threshold: " threshold
+                           "\nValue: " res)))))))
