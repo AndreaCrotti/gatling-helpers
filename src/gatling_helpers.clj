@@ -1,11 +1,13 @@
 (ns gatling-helpers
   "Helper functions to parse, analyse and automatically generate tests
   from gatling simulation results"
-  (:require [clojure.string :as str]
-            [clojure.test :refer [testing is]]
-            [clojure.set :refer [subset?]]
+  (:require [cheshire.core :as json]
+            [clj-http.client :as http]
             [clojure.java.io :as io]
-            [cheshire.core :as json]
+            [clojure.set :refer [subset?]]
+            [clojure.string :as str]
+            [clojure.test :refer [testing is]]
+            [clojure.core.async :as async]
             [medley.core :as medley]))
 
 (def global-information "Global Information")
@@ -49,6 +51,8 @@
                   {})
        transform-report))
 
+;; TODO: instead of defining rules this way we could use a multimethod
+;; which would make it easier to extend from anywhere ideally
 (def rules
   ;; implement the missing rules
   {:maxResponseTime
@@ -67,6 +71,9 @@
    (fn [v {:keys [meanNumberOfRequestsPerSecond]}]
      (>= (:ok meanNumberOfRequestsPerSecond) v))})
 
+
+;; TODO: this is just relying on alphabetical ordering, which also coincidentally gets the latest report
+;; would be better to just be more explicit
 (defn find-latest-report []
   (->> (io/file report-root)
        file-seq
@@ -85,14 +92,13 @@
   (-> (format "%s/%s" report-root (find-latest-report))
       fetch-last-report))
 
-(defn check-thresholds [thresholds]
+(defn check-thresholds [report thresholds]
   {:pre [(subset? (set (mapcat keys (vals thresholds))) (set (keys rules)))]}
-  ;; fetch the latest report and check the
-  (let [results (last-report)]
-    (doseq [[name res]       results
-            [path threshold] (get thresholds name)]
-      (testing (str "Scenario: " name ", Step: " path)
-        (let [f      (get rules path)
-              passed? (f threshold res)]
-          (is passed? (str "Threshold: " threshold
-                           "\nValue: " res)))))))
+  ;; fetch the latest report and generate assertions
+  (doseq [[name res]       report
+          [path threshold] (get thresholds name)]
+    (testing (str "Scenario: " name ", Step: " path)
+      (let [f       (get rules path)
+            passed? (f threshold res)]
+        (is passed? (str "Threshold: " threshold
+                         "\nValue: " res))))))
